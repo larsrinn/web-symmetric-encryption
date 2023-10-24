@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'nonce-RANDOM'; style-src 'self' 'nonce-RANDOM';">
+<title>Verschlüsselung</title>
+<style nonce="RANDOM">
+  body { font-family: Arial, sans-serif; margin: 20px; }
+  textarea, input { width: 100%; margin-bottom: 10px; padding: 5px; }
+  button { padding: 5px 15px; }
+  .error { color: red; }
+  .output { margin-top: 10px; white-space: pre-wrap; word-wrap: break-word; }
+</style>
+</head>
+<body>
+
+<h2>Verschlüsseln</h2>
+<label for="password1">Passwort:</label>
+<input type="password" id="password1">
+<label for="password2">Passwort wiederholen:</label>
+<input type="password" id="password2">
+<label for="plaintext">Text:</label>
+<textarea id="plaintext"></textarea>
+<button id="encryptButton">Verschlüsseln</button>
+<div class="output" id="encryptedOutput"></div>
+<div class="error" id="encryptionError"></div>
+
+<h2>Entschlüsseln</h2>
+<label for="decryptPassword">Passwort:</label>
+<input type="password" id="decryptPassword">
+<label for="ciphertext">Verschlüsselter Text:</label>
+<textarea id="ciphertext"></textarea>
+<button id="decryptButton">Entschlüsseln</button>
+<div class="output" id="decryptedOutput"></div>
+
+<script nonce="RANDOM">
+  async function encryptText() {
+    const password1 = document.getElementById('password1').value;
+    const password2 = document.getElementById('password2').value;
+    const plaintext = document.getElementById('plaintext').value;
+    const output = document.getElementById('encryptedOutput');
+    const error = document.getElementById('encryptionError');
+
+    if (password1 !== password2) {
+      error.textContent = 'Die Passwörter sind nicht identisch!';
+      output.textContent = '';
+      return;
+    }
+
+    error.textContent = '';
+
+    try {
+      const iterations = 100000;
+      const salt = window.crypto.getRandomValues(new Uint8Array(16));
+      const keyMaterial = await window.crypto.subtle.importKey(
+        'raw',
+        new TextEncoder().encode(password1),
+        { name: 'PBKDF2' },
+        false,
+        ['deriveKey']
+      );
+      const key = await window.crypto.subtle.deriveKey(
+        {
+          name: 'PBKDF2',
+          salt: salt,
+          iterations: iterations,
+          hash: 'SHA-256'
+        },
+        keyMaterial,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt']
+      );
+      const iv = window.crypto.getRandomValues(new Uint8Array(12));
+      const encrypted = await window.crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv },
+        key,
+        new TextEncoder().encode(plaintext)
+      );
+      const encryptedData = {
+        iv: arrayBufferToBase64(iv),
+        encrypted: arrayBufferToBase64(encrypted),
+        iterations: iterations,
+        salt: arrayBufferToBase64(salt)
+      };
+      output.textContent = JSON.stringify(encryptedData, null, 2);
+    } catch (err) {
+      error.textContent = 'Fehler bei der Verschlüsselung!';
+      console.error(err);
+    }
+  }
+
+  async function decryptText() {
+    const password = document.getElementById('decryptPassword').value;
+    const ciphertext = document.getElementById('ciphertext').value;
+    const output = document.getElementById('decryptedOutput');
+
+    try {
+      const encryptedData = JSON.parse(ciphertext);
+      const keyMaterial = await window.crypto.subtle.importKey(
+        'raw',
+        new TextEncoder().encode(password),
+        { name: 'PBKDF2' },
+        false,
+        ['deriveKey']
+      );
+      const key = await window.crypto.subtle.deriveKey(
+        {
+          name: 'PBKDF2',
+          salt: base64ToArrayBuffer(encryptedData.salt),
+          iterations: encryptedData.iterations,
+          hash: 'SHA-256'
+        },
+        keyMaterial,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['decrypt']
+      );
+      const iv = base64ToArrayBuffer(encryptedData.iv);
+      const decrypted = await window.crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv },
+        key,
+        base64ToArrayBuffer(encryptedData.encrypted)
+      );
+      output.textContent = new TextDecoder().decode(decrypted);
+    } catch (err) {
+      output.textContent = 'Fehler bei der Entschlüsselung!';
+      console.error(err);
+    }
+  }
+
+  function arrayBufferToBase64(buffer) {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    for (const byte of bytes) {
+      binary += String.fromCharCode(byte);
+    }
+    return window.btoa(binary);
+  }
+
+  function base64ToArrayBuffer(base64) {
+    const binary_string = window.atob(base64);
+    const len = binary_string.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binary_string.charCodeAt(i);
+    }
+    return bytes.buffer;
+  }
+
+  document.addEventListener('DOMContentLoaded', (event) => {
+    document.getElementById('encryptButton').addEventListener('click', encryptText);
+    document.getElementById('decryptButton').addEventListener('click', decryptText);
+  });
+
+</script>
+
+</body>
+</html>
+
