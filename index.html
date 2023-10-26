@@ -3,9 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'nonce-RANDOM'; style-src 'self' 'nonce-RANDOM';">
 <title>Verschlüsselung</title>
-<style nonce="RANDOM">
+<style>
   body { font-family: Arial, sans-serif; margin: 20px; }
   textarea, input { width: 100%; margin-bottom: 10px; padding: 5px; }
   button { padding: 5px 15px; }
@@ -23,8 +22,12 @@
 <label for="plaintext">Text:</label>
 <textarea id="plaintext"></textarea>
 <button id="encryptButton">Verschlüsseln</button>
-<div class="output" id="encryptedOutput"></div>
 <div class="error" id="encryptionError"></div>
+
+<h3>Verschlüsselter Text</h3>
+<div class="output" id="encryptedOutput"></div>
+<h3>Als QR-Code</h3>
+<div class="qr" id="encryptedOutputQR"></div>
 
 <h2>Entschlüsseln</h2>
 <label for="decryptPassword">Passwort:</label>
@@ -34,8 +37,15 @@
 <button id="decryptButton">Entschlüsseln</button>
 <div class="output" id="decryptedOutput"></div>
 
-<script nonce="RANDOM">
+
+<script
+    src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"
+    integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU"
+    crossorigin="anonymous"></script>
+
+<script>
   async function encryptText() {
+    document.getElementById("encryptedOutputQR").innerHTML = "";
     const password1 = document.getElementById('password1').value;
     const password2 = document.getElementById('password2').value;
     const plaintext = document.getElementById('plaintext').value;
@@ -85,6 +95,12 @@
         salt: arrayBufferToBase64(salt)
       };
       output.textContent = JSON.stringify(encryptedData, null, 2);
+      qrcode = new QRCode(document.getElementById("encryptedOutputQR"), {
+        text: JSON.stringify(encryptedData),
+        // width: 128,
+        // height: 128,
+        correctLevel : QRCode.CorrectLevel.H
+    });
     } catch (err) {
       error.textContent = 'Fehler bei der Verschlüsselung!';
       console.error(err);
