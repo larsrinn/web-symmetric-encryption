@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import jsQR from 'jsqr';
 import { isValidEncryptedData, type EncryptedData } from '../utils/crypto';
 
@@ -13,7 +13,28 @@ export function QRScanner({ onQRScanned }: QRScannerProps) {
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationRef = useRef<number>();
+  const animationRef = useRef<number>(null);
+
+  const stopScanning = useCallback(() => {
+    setIsScanning(false);
+    setMessage('');
+    
+    // Stop animation frame
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+    }
+    
+    // Stop camera stream
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    
+    // Clear video
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  }, [stream]);
 
   const scanQRCode = useCallback(() => {
     if (!isScanning || !videoRef.current || !canvasRef.current) return;
@@ -52,14 +73,33 @@ export function QRScanner({ onQRScanned }: QRScannerProps) {
         } else {
           setMessage('QR-Code gefunden, aber kein gültiger verschlüsselter Text.');
         }
-      } catch (error) {
+      } catch {
         setMessage('QR-Code gefunden, aber ungültiges JSON-Format.');
       }
     }
 
     // Continue scanning
     animationRef.current = requestAnimationFrame(scanQRCode);
-  }, [isScanning, onQRScanned]);
+  }, [isScanning, onQRScanned, stopScanning]);
+
+  // Handle video setup when component state changes
+  useEffect(() => {
+    if (isScanning && stream && videoRef.current) {
+      const video = videoRef.current;
+      video.srcObject = stream;
+      
+      // Start scanning when video is ready
+      const handleLoadedMetadata = () => {
+        scanQRCode();
+      };
+      
+      video.addEventListener('loadedmetadata', handleLoadedMetadata);
+      
+      return () => {
+        video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      };
+    }
+  }, [isScanning, stream, scanQRCode]);
 
   const startScanning = async () => {
     try {
@@ -74,39 +114,13 @@ export function QRScanner({ onQRScanned }: QRScannerProps) {
         }
       });
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-        setStream(mediaStream);
-        setIsScanning(true);
-        setMessage('Scanner läuft... Halten Sie den QR-Code vor die Kamera.');
-        
-        // Start scanning loop
-        scanQRCode();
-      }
+      // Set stream and scanning state - video setup will happen in useEffect
+      setStream(mediaStream);
+      setIsScanning(true);
+      setMessage('Scanner läuft... Halten Sie den QR-Code vor die Kamera.');
     } catch (error) {
       console.error('Camera access error:', error);
       setMessage('Kamera-Zugriff fehlgeschlagen. Bitte erlauben Sie den Kamera-Zugriff.');
-    }
-  };
-
-  const stopScanning = () => {
-    setIsScanning(false);
-    setMessage('');
-    
-    // Stop animation frame
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-    }
-    
-    // Stop camera stream
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
-    
-    // Clear video
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
     }
   };
 

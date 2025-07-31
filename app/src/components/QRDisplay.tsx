@@ -32,13 +32,23 @@ export function QRDisplay({ encryptedData }: QRDisplayProps) {
     generateQR();
   }, [encryptedData]);
 
-  const handleDownload = () => {
+  const handleCopyQRImage = async () => {
     if (!canvasRef.current) return;
     
-    const link = document.createElement('a');
-    link.download = 'encrypted-data-qr.png';
-    link.href = canvasRef.current.toDataURL();
-    link.click();
+    try {
+      const canvas = canvasRef.current;
+      const blob = await new Promise<Blob>((resolve) => {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+        }, 'image/png');
+      });
+      
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob })
+      ]);
+    } catch (error) {
+      console.error('Failed to copy QR code to clipboard:', error);
+    }
   };
 
   const handleCopyJson = async () => {
@@ -83,10 +93,10 @@ export function QRDisplay({ encryptedData }: QRDisplayProps) {
         
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={handleDownload}
+            onClick={handleCopyQRImage}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
           >
-            QR-Code herunterladen
+            QR-Code kopieren
           </button>
           
           <button
