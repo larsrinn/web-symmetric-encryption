@@ -37,11 +37,6 @@ export function EncryptSection({ onEncrypted }: EncryptSectionProps) {
       setIsEncrypting(true);
       const encryptedData = await encryptText(password1, plaintext);
       onEncrypted(encryptedData);
-      
-      // Clear form after successful encryption
-      setPassword1('');
-      setPassword2('');
-      setPlaintext('');
     } catch (err) {
       setError('Fehler bei der Verschlüsselung!');
       console.error('Encryption error:', err);
