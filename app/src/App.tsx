@@ -3,7 +3,7 @@ import { EncryptSection } from './components/EncryptSection';
 import { DecryptSection } from './components/DecryptSection';
 import { QRDisplay } from './components/QRDisplay';
 import { QRScanner } from './components/QRScanner';
-import { type EncryptedData } from './utils/crypto';
+import { type EncryptedData, encryptedDataToBase64 } from './utils/crypto';
 
 function App() {
   const [encryptedData, setEncryptedData] = useState<EncryptedData | null>(null);
@@ -20,9 +20,12 @@ function App() {
   const handleDecryptDataChange = (data: string) => {
     // This is called when the decrypt section's ciphertext changes
     // We can use this to clear scanned data if user manually edits
+    if (!scannedData) return;
+    
     try {
-      const parsed = JSON.parse(data);
-      if (JSON.stringify(parsed) !== JSON.stringify(scannedData)) {
+      // Compare with the base64 representation of scanned data
+      const scannedBase64 = encryptedDataToBase64(scannedData);
+      if (data.trim() !== scannedBase64) {
         setScannedData(null);
       }
     } catch {

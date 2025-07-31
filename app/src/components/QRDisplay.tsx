@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
-import { type EncryptedData } from '../utils/crypto';
+import { type EncryptedData, encryptedDataToBase64 } from '../utils/crypto';
 
 interface QRDisplayProps {
   encryptedData: EncryptedData | null;
@@ -8,14 +8,16 @@ interface QRDisplayProps {
 
 export function QRDisplay({ encryptedData }: QRDisplayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [base64Data, setBase64Data] = useState<string>('');
 
   useEffect(() => {
     if (!encryptedData || !canvasRef.current) return;
 
     const generateQR = async () => {
       try {
-        const jsonString = JSON.stringify(encryptedData);
-        await QRCode.toCanvas(canvasRef.current!, jsonString, {
+        const base64String = encryptedDataToBase64(encryptedData);
+        setBase64Data(base64String);
+        await QRCode.toCanvas(canvasRef.current!, base64String, {
           width: 400,
           margin: 2,
           color: {
@@ -51,12 +53,11 @@ export function QRDisplay({ encryptedData }: QRDisplayProps) {
     }
   };
 
-  const handleCopyJson = async () => {
-    if (!encryptedData) return;
+  const handleCopyBase64 = async () => {
+    if (!base64Data) return;
     
-    const jsonString = JSON.stringify(encryptedData, null, 2);
     try {
-      await navigator.clipboard.writeText(jsonString);
+      await navigator.clipboard.writeText(base64Data);
     } catch (error) {
       console.error('Failed to copy to clipboard:', error);
     }
@@ -100,20 +101,20 @@ export function QRDisplay({ encryptedData }: QRDisplayProps) {
           </button>
           
           <button
-            onClick={handleCopyJson}
+            onClick={handleCopyBase64}
             className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
           >
-            JSON kopieren
+            Text kopieren
           </button>
         </div>
       </div>
 
       <div className="mt-4">
         <h4 className="text-lg font-semibold text-gray-800 mb-2">
-          Verschlüsselte Daten (JSON):
+          Verschlüsselte Daten:
         </h4>
-        <pre className="bg-white border border-gray-200 rounded-md p-4 text-sm font-mono overflow-x-auto">
-          {JSON.stringify(encryptedData, null, 2)}
+        <pre className="bg-white border border-gray-200 rounded-md p-4 text-sm font-mono overflow-x-auto break-all">
+          {base64Data}
         </pre>
       </div>
     </div>

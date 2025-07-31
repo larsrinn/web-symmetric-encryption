@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import jsQR from 'jsqr';
-import { isValidEncryptedData, type EncryptedData } from '../utils/crypto';
+import { isValidEncryptedData, base64ToEncryptedData, type EncryptedData } from '../utils/crypto';
 
 interface QRScannerProps {
   onQRScanned: (data: EncryptedData) => void;
@@ -61,20 +61,27 @@ export function QRScanner({ onQRScanned }: QRScannerProps) {
 
     if (code) {
       try {
-        // Try to parse as JSON
-        const parsedData = JSON.parse(code.data);
+        // Try to decode as base64 first, then fall back to JSON for backwards compatibility
+        let parsedData: EncryptedData;
         
-        // Validate that it's encrypted data
-        if (isValidEncryptedData(parsedData)) {
-          setMessage('QR-Code erfolgreich gescannt!');
-          onQRScanned(parsedData);
-          stopScanning();
-          return;
-        } else {
-          setMessage('QR-Code gefunden, aber kein gültiger verschlüsselter Text.');
+        try {
+          // Try to decode as base64
+          parsedData = base64ToEncryptedData(code.data);
+        } catch {
+          // Fall back to JSON parsing for backwards compatibility
+          parsedData = JSON.parse(code.data);
+          if (!isValidEncryptedData(parsedData)) {
+            setMessage('QR-Code gefunden, aber kein gültiger verschlüsselter Text.');
+            return;
+          }
         }
+        
+        setMessage('QR-Code erfolgreich gescannt!');
+        onQRScanned(parsedData);
+        stopScanning();
+        return;
       } catch {
-        setMessage('QR-Code gefunden, aber ungültiges JSON-Format.');
+        setMessage('QR-Code gefunden, aber ungültiges Datenformat.');
       }
     }
 

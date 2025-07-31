@@ -142,3 +142,29 @@ export function isValidEncryptedData(data: any): data is EncryptedData {
     typeof data.iterations === 'number'
   );
 }
+
+/**
+ * Converts encrypted data object to base64 string for user-friendly display
+ */
+export function encryptedDataToBase64(data: EncryptedData): string {
+  const jsonString = JSON.stringify(data);
+  return window.btoa(unescape(encodeURIComponent(jsonString)));
+}
+
+/**
+ * Converts base64 string back to encrypted data object
+ */
+export function base64ToEncryptedData(base64: string): EncryptedData {
+  try {
+    const jsonString = decodeURIComponent(escape(window.atob(base64)));
+    const data = JSON.parse(jsonString);
+    
+    if (!isValidEncryptedData(data)) {
+      throw new Error('Invalid encrypted data format');
+    }
+    
+    return data;
+  } catch (error) {
+    throw new Error('Failed to decode base64 encrypted data');
+  }
+}

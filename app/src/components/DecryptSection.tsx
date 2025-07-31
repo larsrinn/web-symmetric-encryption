@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { decryptText, isValidEncryptedData, type EncryptedData } from '../utils/crypto';
+import { decryptText, isValidEncryptedData, encryptedDataToBase64, base64ToEncryptedData, type EncryptedData } from '../utils/crypto';
 
 interface DecryptSectionProps {
   encryptedData?: EncryptedData | null;
@@ -16,9 +16,9 @@ export function DecryptSection({ encryptedData, onDataChange }: DecryptSectionPr
   // Update ciphertext when encrypted data is provided from QR scanner
   useEffect(() => {
     if (encryptedData) {
-      const jsonString = JSON.stringify(encryptedData, null, 2);
-      setCiphertext(jsonString);
-      onDataChange(jsonString);
+      const base64String = encryptedDataToBase64(encryptedData);
+      setCiphertext(base64String);
+      onDataChange(base64String);
     }
   }, [encryptedData, onDataChange]);
 
@@ -39,13 +39,24 @@ export function DecryptSection({ encryptedData, onDataChange }: DecryptSectionPr
     try {
       setIsDecrypting(true);
       
-      // Parse encrypted data from JSON
-      const parsedData = JSON.parse(ciphertext);
+      // Try to parse as base64 first, then fall back to JSON for backwards compatibility
+      let parsedData: EncryptedData;
       
-      // Validate data structure
-      if (!isValidEncryptedData(parsedData)) {
-        setError('Ungültiges Format der verschlüsselten Daten.');
-        return;
+      try {
+        // Try to decode as base64
+        parsedData = base64ToEncryptedData(ciphertext.trim());
+      } catch {
+        // Fall back to JSON parsing for backwards compatibility
+        try {
+          parsedData = JSON.parse(ciphertext);
+          if (!isValidEncryptedData(parsedData)) {
+            setError('Ungültiges Format der verschlüsselten Daten.');
+            return;
+          }
+        } catch {
+          setError('Ungültiges Format der verschlüsselten Daten. Erwarte Base64 oder JSON.');
+          return;
+        }
       }
 
       // Attempt decryption
@@ -53,11 +64,7 @@ export function DecryptSection({ encryptedData, onDataChange }: DecryptSectionPr
       setDecryptedText(decrypted);
       
     } catch (err) {
-      if (err instanceof SyntaxError) {
-        setError('Ungültiges JSON-Format der verschlüsselten Daten.');
-      } else {
-        setError('Entschlüsselung fehlgeschlagen. Prüfen Sie Ihr Passwort.');
-      }
+      setError('Entschlüsselung fehlgeschlagen. Prüfen Sie Ihr Passwort und die Daten.');
       console.error('Decryption error:', err);
     } finally {
       setIsDecrypting(false);
@@ -101,15 +108,15 @@ export function DecryptSection({ encryptedData, onDataChange }: DecryptSectionPr
 
         <div>
           <label htmlFor="ciphertext" className="block text-sm font-medium text-gray-700 mb-2">
-            Verschlüsselte Daten (JSON):
+            Verschlüsselte Daten:
           </label>
           <textarea
             id="ciphertext"
             value={ciphertext}
             onChange={(e) => handleCiphertextChange(e.target.value)}
-            rows={8}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-vertical font-mono text-sm"
-            placeholder="Hier die verschlüsselten JSON-Daten einfügen oder QR-Code scannen..."
+            rows={6}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-vertical font-mono text-sm break-all"
+            placeholder="Hier die verschlüsselten Daten einfügen oder QR-Code scannen..."
           />
         </div>
 
